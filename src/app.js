@@ -69,9 +69,17 @@ app.post("/sign-in", async (req,res)=>{
         const user=result.rows[0]
         
         if(user && bcrypt.compareSync(password, user.password)){
-            const token = uuidv4()
+            console.log()
             await connection.query(`
-                INSERT INTO sessions ("userId", token)
+                DELETE FROM sessions
+                WHERE "userId" = $1
+            `,[user.id])
+
+            const token = uuidv4()
+
+            await connection.query(`
+                INSERT INTO sessions 
+                ("userId", token)
                 VALUES ($1, $2)
             `, [user.id, token]);
             
@@ -94,20 +102,77 @@ app.post("/sign-in", async (req,res)=>{
     }
 })
 
-//REQUISITAR DADOS
-// app.get("/posts", async (req,res) => {
-//     const authorization = req.headers['authorization'];
-//     const token = authorization.replace('Bearer ', '');
-  
-//     const user = await connection.query(`
-//       SELECT * FROM sessions
-//       JOIN users
-//       ON sessions."userId" = users.id
-//       WHERE sessions.token = $1
-//     `, [token]);
-  
-//     // ...
-//   });
+app.get("/wallet-history", async (req,res)=>{
+    try{
+        const authorization = req.headers['authorization'];
+        const token = authorization?.replace('Bearer ', '');
+        console.log(token)
+        if(!token){
+            sendStatus(401)
+            return
+        }
+        const result = await connection.query(`
+            SELECT *
+            FROM sessions
+            WHERE token = $1;
+        `,[token])
+        console.log(result)
+        if(result.rows.length!==1){
+            sendStatus(401)
+            return
+        }
+
+        const {userId}= result.rows[0]
+
+        const transactions = await connection.query(`
+            SELECT *
+            FROM transactions
+            WHERE "userId" = $1;
+        `,[userId])
+        console.log(transactions.rows)
+        res.send(transactions.rows)
+        return
+    }catch(e){
+        console.log(e)
+        res.sendStatus(401)
+    }
+})
+
+app.post("/transaction", async (req,res)=>{
+    try{
+        const authorization = req.headers['authorization'];
+        const token = authorization?.replace('Bearer ', '');
+        if(!token){
+            sendStatus(401)
+            return
+        }
+        const result = await connection.query(`
+            SELECT users.id, users.name, users.email 
+            FROM sessions 
+            JOIN users 
+            ON users.id = sessions."userId" 
+            WHERE token = $1;
+        `,[token])
+        
+        if(result.rows.length!==1){
+            sendStatus(401)
+            return
+        }
+
+        const { userId, value, description, cashIn } = req.body;
+
+        await connection.query(`
+            INSERT INTO transactions 
+            ("userId", value, description, "cashIn", date)
+            VALUES ($1, $2, $3, $4, $5)
+        `, [userId, value, description, cashIn, dayjs().format("YYYY-MM-DD")]);
+
+        res.sendStatus(201)
+    }catch(e){
+        console.log(e)
+        res.sendStatus(401)
+    }
+})
 
 app.listen(4000, ()=>{
     console.log("Server running on port 4000") 
