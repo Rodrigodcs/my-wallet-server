@@ -78,7 +78,6 @@ app.post("/sign-in", async (req,res)=>{
         const user=result.rows[0]
         
         if(user && bcrypt.compareSync(password, user.password)){
-            console.log()
             await connection.query(`
                 DELETE FROM sessions
                 WHERE "userId" = $1
@@ -115,9 +114,9 @@ app.get("/wallet-history", async (req,res)=>{
     try{
         const authorization = req.headers['authorization'];
         const token = authorization?.replace('Bearer ', '');
-        console.log(token)
+
         if(!token){
-            sendStatus(401)
+            res.sendStatus(401)
             return
         }
         const result = await connection.query(`
@@ -125,9 +124,8 @@ app.get("/wallet-history", async (req,res)=>{
             FROM sessions
             WHERE token = $1;
         `,[token])
-        console.log(result)
         if(result.rows.length!==1){
-            sendStatus(401)
+            res.sendStatus(401)
             return
         }
 
@@ -138,7 +136,6 @@ app.get("/wallet-history", async (req,res)=>{
             FROM transactions
             WHERE "userId" = $1;
         `,[userId])
-        console.log(transactions.rows)
         res.send(transactions.rows)
         return
     }catch(e){
@@ -149,18 +146,21 @@ app.get("/wallet-history", async (req,res)=>{
 
 app.post("/transaction", async (req,res)=>{
     const validation = newEntrySchema.validate(req.body)
-    console.log(validation)
     if(validation.error){
         res.sendStatus(400)
         return
     }
     try{
+        
         const authorization = req.headers['authorization'];
         const token = authorization?.replace('Bearer ', '');
+        
         if(!token){
-            sendStatus(401)
+            
+            res.sendStatus(401)
             return
         }
+        
         const result = await connection.query(`
             SELECT users.id, users.name, users.email 
             FROM sessions 
@@ -170,7 +170,8 @@ app.post("/transaction", async (req,res)=>{
         `,[token])
         
         if(result.rows.length!==1){
-            sendStatus(401)
+            
+            res.sendStatus(401)
             return
         }
 
