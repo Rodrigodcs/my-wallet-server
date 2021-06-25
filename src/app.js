@@ -1,35 +1,39 @@
 import cors from "cors"
 import express from "express"
-import pg from "pg"
-import joi from "joi"
 import dayjs from "dayjs"
 import bcrypt from 'bcrypt';
+import joi from "joi"
 import { v4 as uuidv4 } from 'uuid';
-
-const {Pool} = pg
+import connection from './database.js'
 
 const app = express()
 app.use(cors())
 app.use(express.json());
 
-const connection = new Pool({
-    user: 'postgres',
-    password: '123',
-    host: 'localhost',
-    port: 5432,
-    database: 'mywallet'
+const signUpSchema = joi.object({
+    name: joi.string().min(1).required().trim(),
+    email: joi.string().min(1).required().trim(),
+    password: joi.required()
 })
 
-// const categorySchema = joi.object({
-//     name: joi.string().min(1).required().trim()
-// })
+const signInSchema = joi.object({
+    email: joi.string().min(1).required().trim(),
+    password: joi.required()
+})
 
-app.get("/teste", async (req,res)=>{
-    const teste=await connection.query('SELECT * FROM users')
-    console.log(teste.rows)
+const newEntrySchema = joi.object({
+    value: joi.number().greater(1).required(),
+    description: joi.string().min(1).required().trim(),
+    userId: joi.number().required(),
+    cashIn: joi.boolean().required()
 })
 
 app.post("/sign-up", async (req,res) =>{
+    const validation = signUpSchema.validate(req.body)
+    if(validation.error){
+        res.sendStatus(400)
+        return
+    }
     try{
         const { name, email, password } = req.body;
         
@@ -59,6 +63,11 @@ app.post("/sign-up", async (req,res) =>{
 })
 
 app.post("/sign-in", async (req,res)=>{
+    const validation = signInSchema.validate(req.body)
+    if(validation.error){
+        res.sendStatus(400)
+        return
+    }
     try{
         const { email, password } = req.body;
         const result = await connection.query(`
@@ -139,6 +148,12 @@ app.get("/wallet-history", async (req,res)=>{
 })
 
 app.post("/transaction", async (req,res)=>{
+    const validation = newEntrySchema.validate(req.body)
+    console.log(validation)
+    if(validation.error){
+        res.sendStatus(400)
+        return
+    }
     try{
         const authorization = req.headers['authorization'];
         const token = authorization?.replace('Bearer ', '');
@@ -174,6 +189,8 @@ app.post("/transaction", async (req,res)=>{
     }
 })
 
-app.listen(4000, ()=>{
-    console.log("Server running on port 4000") 
+app.get("/testando",(req,res)=>{
+    res.sendStatus(200)
 })
+
+export default app
